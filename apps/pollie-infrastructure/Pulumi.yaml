@@ -1,0 +1,3 @@
+name: pollie-counter
+runtime: nodejs
+description: Lambda function url dynamo atomic counter
