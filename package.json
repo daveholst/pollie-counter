@@ -1,11 +1,17 @@
 {
+  "scripts": {
+    "predeploy": "npx lambda-build archive -e apps/pollie-backend/index.ts"
+  },
   "devDependencies": {
     "esbuild": "^0.14.36",
+    "lambda-build": "^1.0.6",
     "typescript": "^4.6.3"
   },
   "dependencies": {
     "@pulumi/aws": "^5.1.3",
     "@pulumi/aws-native": "^0.15.0",
-    "@pulumi/pulumi": "^3.29.1"
+    "@pulumi/pulumi": "^3.29.1",
+    "@types/aws-lambda": "^8.10.72",
+    "@wanews/pulumi-apigateway-lambda-proxy": "^0.14.0"
   }
 }
