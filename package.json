@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "predeploy": "npx lambda-build archive -e apps/pollie-backend/index.ts"
+    "predeploy": "npx lambda-build archive -e apps/pollie-backend/index.ts -x aws-sdk"
   },
   "devDependencies": {
     "esbuild": "^0.14.36",

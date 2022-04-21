@@ -53,31 +53,31 @@ const certificateValidation = new aws.acm.CertificateValidation(
 const pollieRaterTable = new aws.dynamodb.Table(dbName, {
   attributes: [
     {
-      name: 'pollie-name',
+      name: 'source',
       type: 'S',
     },
     {
-      name: 'aggregates',
+      name: 'data',
       type: 'S',
     },
-    {
-      name: 'userId',
-      type: 'S',
-    },
+    // {
+    //   name: 'userId',
+    //   type: 'S',
+    // },
   ],
-  hashKey: 'pollie-name',
-  rangeKey: 'aggregates',
-  globalSecondaryIndexes: [
-    {
-      hashKey: 'userId',
-      name: 'user-index',
-      nonKeyAttributes: ['userId', 'pollie-name'],
-      projectionType: 'INCLUDE',
-      rangeKey: 'pollie-name',
-      readCapacity: 10,
-      writeCapacity: 10,
-    },
-  ],
+  hashKey: 'source',
+  rangeKey: 'data',
+  // globalSecondaryIndexes: [
+  //   {
+  //     hashKey: 'userId',
+  //     name: 'user-index',
+  //     nonKeyAttributes: ['userId', 'pollie-name'],
+  //     projectionType: 'INCLUDE',
+  //     rangeKey: 'pollie-name',
+  //     readCapacity: 10,
+  //     writeCapacity: 10,
+  //   },
+  // ],
   billingMode: 'PROVISIONED',
   readCapacity: 10,
   writeCapacity: 10,
@@ -148,7 +148,7 @@ const apiProxy = new ApiGatewayLambdaProxy(`${name}-lambda-proxy`, {
     ),
     runtime: 'nodejs14.x',
     handler: 'index.handler',
-    memorySize: 256,
+    memorySize: 1024,
     environment: {
       variables: {
         DB_NAME: pollieRaterTable.name,

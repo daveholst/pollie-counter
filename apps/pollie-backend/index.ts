@@ -1,63 +1,55 @@
 import { APIGatewayEvent, APIGatewayProxyHandler } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
+import { castVote } from './handlers/cast-vote'
+import { multiUpdate } from './utils'
 
+const dbName = process.env.DB_NAME
 const dynamoDB = new DynamoDB.DocumentClient({
   apiVersion: '2012-08-10',
   region: 'ap-southeast-2',
 })
-const dbName = process.env.DB_NAME
-
-const AWS = require('aws-sdk') // Or use `import` syntax for Typescript and newer ES versions
-
-interface castVoteDTO {
-  pollieName: string
-  rating: number
-}
 
 export async function handler(event: APIGatewayEvent) {
   if (!dbName) {
     console.error('no dynamo table name found :(')
-    return
+    return {
+      statusCode: 500,
+      body: 'No Dynamo Table Found :(',
+    }
   }
+
+  // POST on the root with body content
   if (event.path === '/' && event.httpMethod === 'POST' && event.body) {
-    const data = JSON.parse(event.body) as castVoteDTO
-    // smack it into the DB
-    try {
-      // update atomic counters
-      const result1 = await dynamoDB
-        .update({
-          TableName: dbName,
-          Key: { 'pollie-name': data.pollieName, aggregates: 'total-votes' },
-          ReturnValues: 'UPDATED_NEW',
-          UpdateExpression: `SET #value1 = if_not_exists(#value1, :start) + :increment1, #value2 = if_not_exists(#value2, :start) + :increment2`,
-          ExpressionAttributeValues: {
-            ':start': 0,
-            ':increment1': data.rating,
-            ':increment2': 1,
-          },
-          ExpressionAttributeNames: {
-            '#value1': 'accumulated-vote-count',
-            '#value2': 'total-votes-cast',
-          },
-        })
-        .promise()
+    // TODO type check it here?
+    return await castVote({
+      body: event.body,
+      dynamoDB,
+      dbName,
+    })
+  }
+  // GET on the root
+  if (event.path === '/' && event.httpMethod === 'GET' && event.body) {
+    const getParams = JSON.parse(event.body)
+    console.log(getParams)
 
-      const averageRating =
-        Math.round(
-          (result1.Attributes?.['accumulated-vote-count'] /
-            result1.Attributes?.['total-votes-cast']) *
-            10
-        ) / 10
+    const queryResult = await dynamoDB
+      .query({
+        TableName: dbName,
+        KeyConditionExpression: `#source = :source and #data = :data`,
+        ExpressionAttributeNames: {
+          '#source': 'source',
+          '#data': 'data',
+        },
+        ExpressionAttributeValues: {
+          ':source': `user#${getParams.userId}`,
+          ':data': 'federalElection2022#votes',
+        },
+      })
+      .promise()
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ ...result1.Attributes, averageRating }, null, 2),
-      }
-    } catch (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify(error, null, 2),
-      }
+    return {
+      statusCode: 200,
+      body: JSON.stringify(queryResult, null, 2),
     }
   }
 }
