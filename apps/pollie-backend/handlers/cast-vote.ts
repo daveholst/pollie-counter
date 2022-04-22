@@ -1,5 +1,7 @@
 import { DynamoDB } from 'aws-sdk'
 import { multiUpdate } from '../utils'
+import { getVotes } from './get-votes'
+import { getVoteItems } from './shared'
 
 export interface castVoteParams {
   body: string
@@ -18,20 +20,39 @@ export interface CastVoteDTO {
 }
 export async function castVote({ body, dynamoDB, dbName }: castVoteParams) {
   const data = JSON.parse(body) as CastVoteDTO
-  const indivudalVoteData: IndividualVotesDTO = {
+  const individualVoteData: IndividualVotesDTO = {
     [data.pollieName]: data.rating,
   }
+  let voteVariance = 0
+  let previousVote = undefined
   // smack it into the DB
   try {
-    // TODO update the users vote, check if item exists in the db from this user?
-    //create or override result
+    // TODO add data validation ie vote between 1-10
+    const resultItems = await getVoteItems({
+      body,
+      dynamoDB,
+      dbName,
+    })
+
+    // if a previous vote exists, set variables accordingly
+    if (resultItems?.Items) {
+      resultItems.Items.some((e, i) => {
+        if (e[data.pollieName]) {
+          previousVote = e[data.pollieName]
+          voteVariance = data.rating - previousVote
+          return true
+        }
+      })
+    }
+
+    //create or override (upsert?) result
     const voteResult = await multiUpdate({
       tableName: dbName,
       partitionKeyName: 'source',
       partitionKeyValue: `user#${data.userId}`,
       sortKeyName: 'data',
       sortKeyValue: `federalElection2022#votes`,
-      updates: indivudalVoteData,
+      updates: individualVoteData,
       db: dynamoDB,
     })
 
@@ -47,8 +68,9 @@ export async function castVote({ body, dynamoDB, dbName }: castVoteParams) {
         UpdateExpression: `SET #value1 = if_not_exists(#value1, :start) + :increment1, #value2 = if_not_exists(#value2, :start) + :increment2`,
         ExpressionAttributeValues: {
           ':start': 0,
-          ':increment1': data.rating,
-          ':increment2': 1,
+          ':increment1': previousVote ? voteVariance : data.rating,
+          // if the vote is
+          ':increment2': previousVote ? 0 : 1,
         },
         ExpressionAttributeNames: {
           '#value1': 'accumulatedVoteCount',

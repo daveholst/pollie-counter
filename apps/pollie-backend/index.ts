@@ -1,6 +1,7 @@
 import { APIGatewayEvent, APIGatewayProxyHandler } from 'aws-lambda'
 import { DynamoDB } from 'aws-sdk'
 import { castVote } from './handlers/cast-vote'
+import { getVotes } from './handlers/get-votes'
 import { multiUpdate } from './utils'
 
 const dbName = process.env.DB_NAME
@@ -27,29 +28,12 @@ export async function handler(event: APIGatewayEvent) {
       dbName,
     })
   }
-  // GET on the root
+  // GET on the root - retrieve all the votes
   if (event.path === '/' && event.httpMethod === 'GET' && event.body) {
-    const getParams = JSON.parse(event.body)
-    console.log(getParams)
-
-    const queryResult = await dynamoDB
-      .query({
-        TableName: dbName,
-        KeyConditionExpression: `#source = :source and #data = :data`,
-        ExpressionAttributeNames: {
-          '#source': 'source',
-          '#data': 'data',
-        },
-        ExpressionAttributeValues: {
-          ':source': `user#${getParams.userId}`,
-          ':data': 'federalElection2022#votes',
-        },
-      })
-      .promise()
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(queryResult, null, 2),
-    }
+    return await getVotes({
+      body: event.body,
+      dynamoDB,
+      dbName,
+    })
   }
 }
